@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circles — find your people</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14122B;
+    --bg-soft: #1B1938;
+    --panel: #201D44;
+    --line: #322E5C;
+    --text: #F2F0FA;
+    --text-dim: #A8A4C9;
+    --text-faint: #6F6B96;
+    --coral: #FF6B5E;
+    --coral-dim: #6b3530;
+    --mint: #7DDFB0;
+    --mint-dim: #2d4a3e;
+    --gold: #F2C078;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(255,107,94,0.10), transparent 40%),
+      radial-gradient(circle at 85% 75%, rgba(125,223,176,0.08), transparent 45%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  h1,h2,h3, .display{ font-family:'Space Grotesk', sans-serif; }
+
+  /* ---------- Header ---------- */
+  header{
+    position:relative; z-index:1;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 28px 48px;
+    border-bottom: 1px solid var(--line);
+  }
+  .logo{
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .logo-mark{
+    width:14px; height:14px; border-radius:50%;
+    background: var(--coral);
+    box-shadow: 0 0 0 4px rgba(255,107,94,0.18), 0 0 0 9px rgba(255,107,94,0.08);
+  }
+  .logo-text{ font-size:22px; font-weight:700; letter-spacing:-0.02em; }
+  .logo-text span{ color:var(--text-dim); font-weight:400; font-size:14px; margin-left:4px;}
+  .stats-bar{
+    display:flex; gap:28px; font-size:13px; color:var(--text-dim);
+  }
+  .stats-bar b{ color:var(--text); font-family:'Space Grotesk'; font-size:16px; display:block; }
+
+  /* ---------- Layout ---------- */
+  .layout{
+    position:relative; z-index:1;
+    display:grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap:0;
+    min-height: calc(100vh - 89px);
+  }
+  @media (max-width: 980px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Left: graph stage ---------- */
+  .stage{
+    position:relative;
+    border-right: 1px solid var(--line);
+    padding: 32px 32px 24px;
+    display:flex; flex-direction:column;
+    min-height: 560px;
+  }
+  .stage-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 18px;
+  }
+  .stage-head h2{ font-size:18px; font-weight:600; }
+  .stage-head p{ font-size:13px; color:var(--text-faint); margin-top:2px; }
+  .legend{ display:flex; gap:16px; font-size:12px; color:var(--text-dim); }
+  .legend span{ display:flex; align-items:center; gap:6px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  #graphWrap{
+    flex:1;
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:16px;
+    position:relative;
+    overflow:hidden;
+    min-height: 420px;
+  }
+  #graphSvg{ width:100%; height:100%; display:block; cursor:grab; }
+  #graphSvg:active{ cursor:grabbing; }
+
+  .node-label{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    fill: var(--text);
+    pointer-events:none;
+  }
+  .node-sub{
+    font-size:9px;
+    fill: var(--text-faint);
+    pointer-events:none;
+  }
+
+  .empty-stage{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; color:var(--text-faint); text-align:center; padding:20px;
+  }
+  .empty-stage .glyph{ font-size:34px; opacity:0.6; margin-bottom:6px;}
+  .empty-stage b{ color:var(--text-dim); font-weight:600; font-size:14px;}
+
+  .community-strip{
+    display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;
+  }
+  .community-chip{
+    font-size:11px; padding:6px 11px; border-radius:20px;
+    border:1px solid var(--line); color:var(--text-dim);
+    display:flex; align-items:center; gap:6px;
+  }
+  .community-chip .dot{ width:7px; height:7px; }
+
+  /* ---------- Right: control panel ---------- */
+  .panel{
+    padding: 32px 36px 40px;
+    overflow-y:auto;
+    max-height: calc(100vh - 89px);
+  }
+  .panel-section{ margin-bottom: 34px; }
+  .panel-section h2{
+    font-size:16px; font-weight:600; margin-bottom:4px;
+  }
+  .panel-section .sub{
+    font-size:13px; color:var(--text-faint); margin-bottom:16px;
+  }
+
+  /* form */
+  .field{ margin-bottom:14px; }
+  .field label{
+    display:block; font-size:12px; font-weight:600;
+    color:var(--text-dim); margin-bottom:6px;
+    letter-spacing:0.02em;
+  }
+  input[type=text]{
+    width:100%;
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 14px;
+    color:var(--text);
+    font-family:'Inter';
+    font-size:14px;
+    outline:none;
+    transition: border-color .15s ease;
+  }
+  input[type=text]:focus{ border-color: var(--coral); }
+  input[type=text]::placeholder{ color: var(--text-faint); }
+
+  .hint{ font-size:11.5px; color:var(--text-faint); margin-top:6px; }
+
+  .chip-row{
+    display:flex; flex-wrap:wrap; gap:7px; margin-top:9px;
+  }
+  .interest-chip{
+    font-size:12px; padding:6px 12px;
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:20px;
+    color:var(--text-dim);
+    cursor:pointer;
+    transition: all .15s ease;
+    user-select:none;
+  }
+  .interest-chip:hover{ border-color: var(--text-faint); }
+  .interest-chip.picked{
+    background: var(--coral-dim);
+    border-color: var(--coral);
+    color: #FFD9D4;
+  }
+  .interest-chip.custom-remove::after{ content:" ×"; }
+
+  .friend-select{
+    display:flex; flex-wrap:wrap; gap:7px; margin-top:9px;
+    max-height:140px; overflow-y:auto; padding:2px;
+  }
+  .friend-chip{
+    font-size:12px; padding:6px 12px;
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:20px;
+    color:var(--text-dim);
+    cursor:pointer;
+    user-select:none;
+    transition: all .15s ease;
+  }
+  .friend-chip:hover{ border-color: var(--text-faint); }
+  .friend-chip.picked{
+    background: var(--mint-dim);
+    border-color: var(--mint);
+    color: var(--mint);
+  }
+
+  .btn{
+    appearance:none; border:none; cursor:pointer;
+    font-family:'Inter'; font-weight:600; font-size:14px;
+    border-radius:10px; padding:12px 20px;
+    display:inline-flex; align-items:center; gap:8px;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn-primary{
+    background: var(--coral); color:#1A0F0D;
+    width:100%; justify-content:center;
+  }
+  .btn-primary:hover{ opacity:0.92; }
+  .btn-primary:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-ghost{
+    background:transparent; color:var(--text-dim);
+    border:1px solid var(--line);
+  }
+  .btn-ghost:hover{ border-color:var(--text-faint); color:var(--text); }
+
+  /* who-picker */
+  .who-grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(86px,1fr));
+    gap:10px; margin-top:6px;
+  }
+  .who-card{
+    background:var(--bg-soft); border:1px solid var(--line);
+    border-radius:12px; padding:12px 8px;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    cursor:pointer; text-align:center;
+    transition: all .15s ease;
+  }
+  .who-card:hover{ border-color: var(--text-faint); }
+  .who-card.active{ border-color: var(--coral); background: var(--coral-dim); }
+  .who-avatar{
+    width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:13px;
+    color:#1A0F0D;
+  }
+  .who-name{ font-size:12px; font-weight:600; }
+  .who-meta{ font-size:10px; color:var(--text-faint); }
+
+  /* weight slider */
+  .weight-row{
+    display:flex; align-items:center; gap:12px; margin-top:6px;
+  }
+  .weight-row span{ font-size:12px; color:var(--text-dim); width:108px; flex-shrink:0;}
+  input[type=range]{
+    -webkit-appearance:none; flex:1;
+    height:4px; border-radius:2px; background: var(--line); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background: var(--coral); cursor:pointer; border:2px solid var(--bg);
+  }
+  .weight-val{ font-family:'Space Grotesk'; font-size:13px; color:var(--text); width:20px; text-align:right;}
+
+  /* recommendation cards */
+  .rec-list{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
+  .rec-card{
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    display:flex; align-items:center; gap:14px;
+    animation: rise .35s ease both;
+  }
+  @keyframes rise{
+    from{ opacity:0; transform: translateY(8px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .rec-rank{
+    font-family:'Space Grotesk'; font-size:20px; font-weight:700;
+    color: var(--text-faint); width:24px; flex-shrink:0;
+  }
+  .rec-card:nth-child(1) .rec-rank{ color: var(--coral); }
+  .rec-avatar{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:#1A0F0D;
+  }
+  .rec-body{ flex:1; min-width:0; }
+  .rec-name{ font-weight:600; font-size:14.5px; }
+  .rec-reason{ font-size:12px; color:var(--text-faint); margin-top:2px; line-height:1.5;}
+  .rec-reason b{ color: var(--text-dim); font-weight:600; }
+  .rec-score{
+    text-align:right; flex-shrink:0;
+  }
+  .rec-score-num{ font-family:'Space Grotesk'; font-weight:700; font-size:17px; color: var(--mint);}
+  .rec-score-label{ font-size:10px; color:var(--text-faint); }
+
+  .empty-panel{
+    color:var(--text-faint); font-size:13px; padding:18px 0;
+    border:1px dashed var(--line); border-radius:12px; text-align:center;
+  }
+
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background: var(--panel); border:1px solid var(--line);
+    padding:12px 20px; border-radius:10px; font-size:13px;
+    opacity:0; transition: all .25s ease; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div class="logo-text">Circles<span>a graph of who you know &amp; what you're into</span></div>
+  </div>
+  <div class="stats-bar">
+    <div><b id="statPeople">0</b>people</div>
+    <div><b id="statLinks">0</b>connections</div>
+    <div><b id="statGroups">0</b>friend groups</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: graph -->
+  <div class="stage">
+    <div class="stage-head">
+      <div>
+        <h2>Your network</h2>
+        <p>Click anyone to see who they should meet</p>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--coral)"></i>selected</span>
+        <span><i class="dot" style="background:var(--mint)"></i>suggested</span>
+        <span><i class="dot" style="background:var(--text-faint)"></i>everyone else</span>
+      </div>
+    </div>
+    <div id="graphWrap">
+      <svg id="graphSvg" viewBox="0 0 800 560"></svg>
+      <div class="empty-stage" id="emptyStage">
+        <div class="glyph">◌</div>
+        <b>No one's here yet</b>
+        <div>Add your first person to start building the network</div>
+      </div>
+    </div>
+    <div class="community-strip" id="communityStrip"></div>
+  </div>
+
+  <!-- RIGHT: controls -->
+  <div class="panel">
+
+    <!-- Add person -->
+    <div class="panel-section">
+      <h2>Add a person</h2>
+      <div class="sub">Give them a name, a few interests, and any friends they already have here.</div>
+
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="nameInput" placeholder="e.g. Priya">
+      </div>
+
+      <div class="field">
+        <label>Interests &amp; hobbies</label>
+        <input type="text" id="interestInput" placeholder="Type one and press Enter — e.g. chess">
+        <div class="chip-row" id="suggestedInterests"></div>
+        <div class="chip-row" id="pickedInterests"></div>
+      </div>
+
+      <div class="field" id="friendField" style="display:none;">
+        <label>Already friends with</label>
+        <div class="friend-select" id="friendPicker"></div>
+      </div>
+
+      <button class="btn btn-primary" id="addPersonBtn">Add to network</button>
+    </div>
+
+    <!-- Pick person -->
+    <div class="panel-section" id="whoSection" style="display:none;">
+      <h2>Find matches for</h2>
+      <div class="sub">Pick someone to see who they'd hit it off with.</div>
+      <div class="who-grid" id="whoGrid"></div>
+    </div>
+
+    <!-- Weighting -->
+    <div class="panel-section" id="weightSection" style="display:none;">
+      <h2>What matters more?</h2>
+      <div class="sub">Tune how much shared friends count versus shared interests.</div>
+      <div class="weight-row">
+        <span>Shared friends</span>
+        <input type="range" id="friendWeight" min="0" max="5" value="2" step="1">
+        <span class="weight-val" id="friendWeightVal">2</span>
+      </div>
+      <div class="weight-row">
+        <span>Shared interests</span>
+        <input type="range" id="interestWeight" min="0" max="5" value="1" step="1">
+        <span class="weight-val" id="interestWeightVal">1</span>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="panel-section" id="recSection" style="display:none;">
+      <h2 id="recHeading">Suggested for —</h2>
+      <div class="sub">Ranked by how good a match they'd be.</div>
+      <div class="rec-list" id="recList"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA MODEL — mirrors the Java FriendRecommendation class:
+   graph: Map<name, Set<friendNames>>
+   interests: Map<name, Set<interest>>
+   ============================================================ */
+const graph = new Map();       // name -> Set of friend names
+const interests = new Map();   // name -> Set of interests
+const positions = new Map();   // name -> {x,y} for graph layout
+
+let selectedUser = null;
+let friendWeight = 2;
+let interestWeight = 1;
+let pendingInterests = new Set();
+let pendingFriends = new Set();
+
+const PALETTE = ['#FF6B5E','#7DDFB0','#F2C078','#8AB4F8','#D88AF2','#F28AA8','#8AF2D8','#F2E08A'];
+function colorFor(name){
+  let h = 0;
+  for(let i=0;i<name.length;i++) h = name.charCodeAt(i) + ((h<<5)-h);
+  return PALETTE[Math.abs(h) % PALETTE.length];
+}
+function initials(name){
+  return name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+const SUGGESTED_INTERESTS = ['music','reading','chess','football','coding','painting','travel','gaming','fitness','cooking','movies','photography'];
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============================================================
+   GRAPH OPERATIONS (same logic as the Java backend)
+   ============================================================ */
+function addUser(name){
+  if(!graph.has(name)){
+    graph.set(name, new Set());
+    interests.set(name, new Set());
+  }
+}
+
+function addFriendship(a,b){
+  addUser(a); addUser(b);
+  graph.get(a).add(b);
+  graph.get(b).add(a);
+}
+
+function addInterests(name, list){
+  addUser(name);
+  list.forEach(h => interests.get(name).add(h.trim().toLowerCase()));
+}
+
+// Weighted recommendation: mutual friends + shared interests
+function recommendFriends(user){
+  if(!graph.has(user)) return [];
+  const directFriends = graph.get(user);
+  const myInterests = interests.get(user) || new Set();
+
+  // Step 1: mutual friend counts via friends-of-friends
+  const mutualCount = new Map();
+  directFriends.forEach(friend=>{
+    graph.get(friend).forEach(fof=>{
+      if(fof === user || directFriends.has(fof)) return;
+      mutualCount.set(fof, (mutualCount.get(fof)||0)+1);
+    });
+  });
+
+  // Step 2: candidates = friends-of-friends UNION anyone sharing an interest
+  const candidates = new Set(mutualCount.keys());
+  graph.forEach((_, other)=>{
+    if(other === user || directFriends.has(other)) return;
+    const theirs = interests.get(other) || new Set();
+    for(const i of myInterests){ if(theirs.has(i)){ candidates.add(other); break; } }
+  });
+
+  // Step 3: weighted score
+  const results = [];
+  candidates.forEach(candidate=>{
+    const mutual = mutualCount.get(candidate) || 0;
+    const theirs = interests.get(candidate) || new Set();
+    const shared = [...myInterests].filter(i=>theirs.has(i));
+    const score = friendWeight*mutual + interestWeight*shared.length;
+    results.push({ user:candidate, mutual, shared, score });
+  });
+
+  results.sort((a,b)=> b.score - a.score);
+  return results;
+}
+
+// Connected components (friend groups) — DFS under the hood, shown simply
+function detectGroups(){
+  const visited = new Set();
+  const groups = [];
+  graph.forEach((_, user)=>{
+    if(visited.has(user)) return;
+    const group = [];
+    const stack = [user];
+    while(stack.length){
+      const cur = stack.pop();
+      if(visited.has(cur)) continue;
+      visited.add(cur);
+      group.push(cur);
+      graph.get(cur).forEach(n=>{ if(!visited.has(n)) stack.push(n); });
+    }
+    groups.push(group);
+  });
+  return groups;
+}
+
+/* ============================================================
+   LAYOUT — simple force-ish circular/cluster layout
+   ============================================================ */
+function layoutGraph(){
+  const groups = detectGroups();
+  const W = 800, H = 560;
+  const cx = W/2, cy = H/2;
+
+  if(groups.length === 1){
+    const names = groups[0];
+    const r = Math.min(W,H)/2 - 80;
+    names.forEach((name,i)=>{
+      const angle = (i/names.length) * Math.PI*2 - Math.PI/2;
+      positions.set(name, { x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle) });
+    });
+    return;
+  }
+
+  // multiple groups: place each group in its own cluster
+  const cols = Math.ceil(Math.sqrt(groups.length));
+  const rows = Math.ceil(groups.length/cols);
+  const cellW = W/cols, cellH = H/rows;
+
+  groups.forEach((names, gi)=>{
+    const col = gi % cols, row = Math.floor(gi/cols);
+    const ccx = cellW*col + cellW/2;
+    const ccy = cellH*row + cellH/2;
+    const r = Math.min(cellW,cellH)/2 - 50;
+    names.forEach((name,i)=>{
+      if(names.length === 1){
+        positions.set(name, {x:ccx, y:ccy});
+      } else {
+        const angle = (i/names.length) * Math.PI*2 - Math.PI/2;
+        positions.set(name, { x: ccx + r*Math.cos(angle), y: ccy + r*Math.sin(angle) });
+      }
+    });
+  });
+}
+
+/* ============================================================
+   RENDER: GRAPH
+   ============================================================ */
+function renderGraph(){
+  layoutGraph();
+  const svg = document.getElementById('graphSvg');
+  const empty = document.getElementById('emptyStage');
+
+  if(graph.size === 0){
+    svg.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  let recSet = new Set();
+  let recMap = new Map();
+  if(selectedUser){
+    recommendFriends(selectedUser).slice(0,8).forEach(r=>{ recSet.add(r.user); recMap.set(r.user, r); });
+  }
+
+  let edgesHtml = '';
+  const drawn = new Set();
+  graph.forEach((friends, a)=>{
+    friends.forEach(b=>{
+      const key = [a,b].sort().join('|');
+      if(drawn.has(key)) return;
+      drawn.add(key);
+      const pa = positions.get(a), pb = positions.get(b);
+      if(!pa || !pb) return;
+      const isSelEdge = selectedUser && (a===selectedUser || b===selectedUser);
+      const stroke = isSelEdge ? 'rgba(255,107,94,0.55)' : 'rgba(168,164,201,0.18)';
+      const width = isSelEdge ? 2 : 1.3;
+      edgesHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="${stroke}" stroke-width="${width}" />`;
+    });
+  });
+
+  // suggestion edges (dashed, mint) from selected user to top recs
+  let sugEdgesHtml = '';
+  if(selectedUser){
+    recommendFriends(selectedUser).slice(0,5).forEach(r=>{
+      const pa = positions.get(selectedUser), pb = positions.get(r.user);
+      if(!pa||!pb) return;
+      sugEdgesHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="var(--mint)" stroke-width="1.6" stroke-dasharray="5,5" opacity="0.65"/>`;
+    });
+  }
+
+  let nodesHtml = '';
+  graph.forEach((friends, name)=>{
+    const p = positions.get(name);
+    if(!p) return;
+    const isSelected = name === selectedUser;
+    const isRec = recSet.has(name);
+    const baseColor = colorFor(name);
+    const ringColor = isSelected ? '#FF6B5E' : (isRec ? '#7DDFB0' : 'transparent');
+    const radius = isSelected ? 24 : (isRec ? 20 : 16);
+
+    nodesHtml += `
+      <g class="node" data-name="${encodeURIComponent(name)}" style="cursor:pointer;">
+        ${isSelected || isRec ? `<circle cx="${p.x}" cy="${p.y}" r="${radius+5}" fill="none" stroke="${ringColor}" stroke-width="2" opacity="0.9"/>` : ''}
+        <circle cx="${p.x}" cy="${p.y}" r="${radius}" fill="${baseColor}" opacity="0.92"/>
+        <text x="${p.x}" y="${p.y+4}" text-anchor="middle" font-family="Space Grotesk" font-weight="700" font-size="11" fill="#1A0F0D">${initials(name)}</text>
+        <text class="node-label" x="${p.x}" y="${p.y+radius+16}" text-anchor="middle">${name}</text>
+        ${isRec ? `<text class="node-sub" x="${p.x}" y="${p.y+radius+28}" text-anchor="middle" fill="var(--mint)">match · ${recMap.get(name).score}</text>` : ''}
+      </g>`;
+  });
+
+  svg.innerHTML = edgesHtml + sugEdgesHtml + nodesHtml;
+
+  svg.querySelectorAll('.node').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const name = decodeURIComponent(el.getAttribute('data-name'));
+      selectUser(name);
+    });
+  });
+}
+
+function renderCommunityStrip(){
+  const groups = detectGroups();
+  const strip = document.getElementById('communityStrip');
+  if(groups.length <= 1){ strip.innerHTML = ''; return; }
+  strip.innerHTML = groups.map((g,i)=>
+    `<div class="community-chip"><span class="dot" style="background:${PALETTE[i%PALETTE.length]}"></span>Group ${i+1} · ${g.length} ${g.length===1?'person':'people'}</div>`
+  ).join('');
+}
+
+/* ============================================================
+   RENDER: STATS
+   ============================================================ */
+function renderStats(){
+  document.getElementById('statPeople').textContent = graph.size;
+  let edgeCount = 0;
+  const seen = new Set();
+  graph.forEach((friends,a)=>friends.forEach(b=>{
+    const k=[a,b].sort().join('|');
+    if(!seen.has(k)){ seen.add(k); edgeCount++; }
+  }));
+  document.getElementById('statLinks').textContent = edgeCount;
+  document.getElementById('statGroups').textContent = detectGroups().length;
+}
+
+/* ============================================================
+   RENDER: WHO-PICKER
+   ============================================================ */
+function renderWhoPicker(){
+  const section = document.getElementById('whoSection');
+  const grid = document.getElementById('whoGrid');
+  if(graph.size === 0){ section.style.display='none'; return; }
+  section.style.display = 'block';
+
+  grid.innerHTML = '';
+  [...graph.keys()].forEach(name=>{
+    const card = document.createElement('div');
+    card.className = 'who-card' + (name===selectedUser ? ' active' : '');
+    card.innerHTML = `
+      <div class="who-avatar" style="background:${colorFor(name)}">${initials(name)}</div>
+      <div class="who-name">${name}</div>
+      <div class="who-meta">${graph.get(name).size} friend${graph.get(name).size!==1?'s':''}</div>
+    `;
+    card.addEventListener('click', ()=> selectUser(name));
+    grid.appendChild(card);
+  });
+}
+
+/* ============================================================
+   RENDER: RECOMMENDATIONS
+   ============================================================ */
+function reasonText(r){
+  const parts = [];
+  if(r.mutual > 0) parts.push(`<b>${r.mutual}</b> mutual friend${r.mutual!==1?'s':''}`);
+  if(r.shared.length > 0) parts.push(`into <b>${r.shared.slice(0,3).join(', ')}</b>${r.shared.length>3?` +${r.shared.length-3} more`:''}`);
+  if(parts.length === 0) return 'New to your circle';
+  return parts.join(' &nbsp;·&nbsp; ');
+}
+
+function renderRecommendations(){
+  const section = document.getElementById('recSection');
+  const weightSection = document.getElementById('weightSection');
+  const list = document.getElementById('recList');
+  const heading = document.getElementById('recHeading');
+
+  if(!selectedUser){ section.style.display='none'; weightSection.style.display='none'; return; }
+
+  section.style.display = 'block';
+  weightSection.style.display = graph.size > 1 ? 'block' : 'none';
+  heading.textContent = `Suggested for ${selectedUser}`;
+
+  const recs = recommendFriends(selectedUser);
+  if(recs.length === 0){
+    list.innerHTML = `<div class="empty-panel">No matches yet — add more people, friendships, or interests to the network.</div>`;
+    return;
+  }
+
+  list.innerHTML = recs.slice(0,8).map((r,i)=>`
+    <div class="rec-card">
+      <div class="rec-rank">${i+1}</div>
+      <div class="rec-avatar" style="background:${colorFor(r.user)}">${initials(r.user)}</div>
+      <div class="rec-body">
+        <div class="rec-name">${r.user}</div>
+        <div class="rec-reason">${reasonText(r)}</div>
+      </div>
+      <div class="rec-score">
+        <div class="rec-score-num">${r.score}</div>
+        <div class="rec-score-label">match score</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectUser(name){
+  selectedUser = name;
+  renderWhoPicker();
+  renderGraph();
+  renderRecommendations();
+}
+
+/* ============================================================
+   INTEREST CHIP PICKER (for the add-person form)
+   ============================================================ */
+function renderSuggestedInterests(){
+  const wrap = document.getElementById('suggestedInterests');
+  wrap.innerHTML = SUGGESTED_INTERESTS
+    .filter(tag => !pendingInterests.has(tag))
+    .map(tag => `<div class="interest-chip" data-tag="${tag}">+ ${tag}</div>`).join('');
+  wrap.querySelectorAll('.interest-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      pendingInterests.add(chip.getAttribute('data-tag'));
+      renderSuggestedInterests();
+      renderPickedInterests();
+    });
+  });
+}
+
+function renderPickedInterests(){
+  const wrap = document.getElementById('pickedInterests');
+  wrap.innerHTML = [...pendingInterests].map(tag=>
+    `<div class="interest-chip picked custom-remove" data-tag="${tag}">${tag}</div>`
+  ).join('');
+  wrap.querySelectorAll('.interest-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      pendingInterests.delete(chip.getAttribute('data-tag'));
+      renderSuggestedInterests();
+      renderPickedInterests();
+    });
+  });
+}
+
+document.getElementById('interestInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    const val = e.target.value.trim().toLowerCase();
+    if(val){
+      pendingInterests.add(val);
+      e.target.value = '';
+      renderSuggestedInterests();
+      renderPickedInterests();
+    }
+  }
+});
+
+/* ============================================================
+   FRIEND PICKER (for the add-person form)
+   ============================================================ */
+function renderFriendPicker(){
+  const field = document.getElementById('friendField');
+  const picker = document.getElementById('friendPicker');
+  if(graph.size === 0){ field.style.display='none'; return; }
+  field.style.display = 'block';
+  picker.innerHTML = [...graph.keys()].map(name=>
+    `<div class="friend-chip ${pendingFriends.has(name)?'picked':''}" data-name="${name}">${name}</div>`
+  ).join('');
+  picker.querySelectorAll('.friend-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const n = chip.getAttribute('data-name');
+      pendingFriends.has(n) ? pendingFriends.delete(n) : pendingFriends.add(n);
+      renderFriendPicker();
+    });
+  });
+}
+
+/* ============================================================
+   ADD PERSON FLOW
+   ============================================================ */
+document.getElementById('addPersonBtn').addEventListener('click', ()=>{
+  const nameInput = document.getElementById('nameInput');
+  const name = nameInput.value.trim();
+
+  if(!name){ toast('Give them a name first'); nameInput.focus(); return; }
+  if(graph.has(name)){ toast(`${name} is already in your network`); return; }
+
+  addUser(name);
+  if(pendingInterests.size) addInterests(name, [...pendingInterests]);
+  pendingFriends.forEach(f => addFriendship(name, f));
+
+  toast(`${name} joined the network`);
+
+  // reset form
+  nameInput.value = '';
+  pendingInterests = new Set();
+  pendingFriends = new Set();
+  renderSuggestedInterests();
+  renderPickedInterests();
+  renderFriendPicker();
+
+  renderStats();
+  renderCommunityStrip();
+  renderWhoPicker();
+  renderGraph();
+
+  // auto-select the newly added person so they immediately see suggestions
+  selectUser(name);
+});
+
+document.getElementById('nameInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ document.getElementById('addPersonBtn').click(); }
+});
+
+/* ============================================================
+   WEIGHT SLIDERS
+   ============================================================ */
+document.getElementById('friendWeight').addEventListener('input', (e)=>{
+  friendWeight = parseInt(e.target.value);
+  document.getElementById('friendWeightVal').textContent = friendWeight;
+  renderRecommendations();
+  renderGraph();
+});
+document.getElementById('interestWeight').addEventListener('input', (e)=>{
+  interestWeight = parseInt(e.target.value);
+  document.getElementById('interestWeightVal').textContent = interestWeight;
+  renderRecommendations();
+  renderGraph();
+});
+
+/* ============================================================
+   SEED DATA — small example network so the page isn't empty
+   ============================================================ */
+function seed(){
+  addFriendship('Alice','Bob');
+  addFriendship('Alice','Charlie');
+  addFriendship('Bob','David');
+  addFriendship('Charlie','David');
+  addFriendship('Charlie','Eve');
+  addFriendship('David','Frank');
+  addFriendship('Eve','Frank');
+  addFriendship('Bob','Eve');
+  addFriendship('Grace','Heidi');
+  addFriendship('Heidi','Ivan');
+
+  addInterests('Alice', ['music','reading','chess']);
+  addInterests('Bob', ['football','music']);
+  addInterests('Charlie', ['chess','coding','music']);
+  addInterests('David', ['football','coding']);
+  addInterests('Eve', ['reading','chess','painting']);
+  addInterests('Frank', ['coding','football']);
+  addInterests('Grace', ['painting','music']);
+  addInterests('Heidi', ['painting','reading']);
+  addInterests('Ivan', ['music','chess']);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+seed();
+renderSuggestedInterests();
+renderFriendPicker();
+renderStats();
+renderCommunityStrip();
+renderWhoPicker();
+renderGraph();
+</script>
+
+</body>
+</html>
